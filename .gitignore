@@ -1,0 +1,48 @@
+# Output directory
+out/
+build/
+
+# Object and Module files
+*.o
+*.o.*
+*.ko
+*.mod.c
+*.mod
+*.order
+*.builtin
+*.symvers
+*.cmd
+
+# Intermediate and build output
+vmlinux
+vmlinux.o
+System.map
+Module.symvers
+modules.order
+.version
+
+# Kernel binaries & DTB
+Image
+Image.gz
+Image.*
+*.dtb
+*.dtbo
+*.img
+*.tar
+
+# Configuration backups
+.config.old
+.config.override
+utsrelease.c
+
+# Generated directories (if building in-tree)
+include/config/
+include/generated/
+arch/*/include/generated/
+
+# Editor & OS files
+.DS_Store
+*.swp
+*~
+.vscode/
+.idea/

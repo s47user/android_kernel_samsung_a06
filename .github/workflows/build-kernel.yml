@@ -1,0 +1,60 @@
+name: Build Samsung Galaxy A06 Kernel
+
+on:
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            build-essential \
+            gcc-aarch64-linux-gnu \
+            bison \
+            flex \
+            libssl-dev \
+            bc \
+            python3 \
+            clang \
+            lld \
+            llvm
+
+      - name: Compile Custom Kernel
+        run: |
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          export CC=clang
+          export CLANG_TRIPLE=aarch64-linux-gnu-
+          export ANDROID_MAJOR_VERSION=r
+          
+          make O=out a06_defconfig
+          make O=out -j$(nproc) KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y Image.gz
+
+      - name: Verify Kernel Output
+        run: |
+          if [ ! -f out/arch/arm64/boot/Image.gz ]; then
+            echo "Build failed: Image.gz not found!"
+            exit 1
+          fi
+          echo "Kernel compiled successfully!"
+          ls -lh out/arch/arm64/boot/Image.gz
+
+      - name: Upload Kernel Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: A06-Kernel-4.19-Image.gz
+          path: out/arch/arm64/boot/Image.gz
+          retention-days: 14
