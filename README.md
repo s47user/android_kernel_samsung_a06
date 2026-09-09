@@ -138,12 +138,12 @@ To experience the maximum fluidity of this custom kernel:
 
 1. **Disable Samsung RAM Plus:**
    * Go to *Settings $\rightarrow$ Device Care $\rightarrow$ Memory $\rightarrow$ RAM Plus $\rightarrow$ Toggle OFF* $\rightarrow$ Restart.
-2. **Configure In-RAM zRAM (via SmartPack Kernel Manager):**
-   * Set algorithm to **LZ4** or **ZSTD**.
-   * Set zRAM size to **2048 MB** (50% of total RAM).
-   * Set swappiness to **100**.
-3. **Schedutil Big-Core Boost:**
-   * Set `up_rate_limit_us` to `500` on CPU policy 6 for instantaneous touch response.
+2. **Configure via [SmartPack Kernel Manager (Galaxy A06 Edition)](https://github.com/s47user/SmartPack-Kernel-Manager-A06):**
+   * Install the custom manager from [Releases](https://github.com/s47user/SmartPack-Kernel-Manager-A06/releases/tag/v17.7-A06).
+   * **1-Tap Fluidity:** Toggle *⚡ Galaxy A06 Fluidity Mode* in the CPU tab (schedutil `up_rate_limit_us` $\rightarrow$ 500µs on policy 6, 512KB eMMC readahead).
+   * **Disable RAM Plus:** Turn off Samsung RAM Plus in Virtual Memory to halt disk swapping.
+   * **In-RAM zRAM:** Set algorithm to **LZ4** or **ZSTD** and size to **2048 MB**.
+
 
 ---
 
