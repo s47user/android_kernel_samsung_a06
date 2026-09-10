@@ -72,6 +72,11 @@ export CC=clang
 export CLANG_TRIPLE=aarch64-linux-gnu-
 export ANDROID_MAJOR_VERSION=r
 
+# Anti-Detection Spoofing (Matching stock Samsung factory firmware)
+export KBUILD_BUILD_USER="dpi"
+export KBUILD_BUILD_HOST="21DKGB11"
+export LOCALVERSION=""
+
 mkdir -p "${OUT_DIR}"
 
 echo "[*] Compiler: $(clang --version | head -n 1)"
