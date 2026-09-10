@@ -2,6 +2,7 @@
 [![Kernel](https://img.shields.io/badge/Kernel-4.19.191-blue.svg)](https://kernel.org)
 [![Android](https://img.shields.io/badge/Android-14%20(One%20UI%20Core%206.1)-green.svg)](https://source.android.com)
 [![SoC](https://img.shields.io/badge/SoC-MediaTek%20Helio%20G85%20(MT6769V)-orange.svg)](https://www.mediatek.com)
+[![Latest Release](https://img.shields.io/badge/Release-v1.0.0--ksunext-brightgreen.svg)](https://github.com/s47user/android_kernel_samsung_a06/releases/tag/v1.0.0-ksunext)
 [![License](https://img.shields.io/badge/License-GPL%20v2-lightgrey.svg)](LICENSE)
 
 An optimized, production-grade custom Linux kernel tree for the **Samsung Galaxy A06 (`SM-A065F` / `SM-A065M`)**, built from official Samsung Open Source code with community performance modifications inspired by developer **physwizz**.
