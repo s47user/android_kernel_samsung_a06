@@ -45,7 +45,11 @@ An optimized, production-grade custom Linux kernel tree for the **Samsung Galaxy
 * **Config:** `CONFIG_WIREGUARD=y`
 * **Benefit:** Cryptographic VPN tunneling handled directly in C inside kernel space rather than slow userspace Go daemons, maximizing bandwidth and minimizing battery drain.
 
-### 6. Modern Toolchain Compatibility
+### 6. Compact LLD 17 Linking & RELR Relocation Packing
+* **Config:** `CONFIG_LD_IS_LLD=y`, `CONFIG_TOOLS_SUPPORT_RELR=y`, `CONFIG_RELR=y`
+* **Benefit:** Links the kernel using LLVM LLD 17.0.2 with experimental relative relocation (`RELR`) packing. Shrinks uncompressed kernel memory footprint from **36.0 MB to 30.1 MB** (saving **~6.0 MB** of physical RAM), matching stock Samsung memory density while using modern Clang 17.
+
+### 7. Modern Toolchain Compatibility
 * Includes upstream patches to resolve pointer-conversion syntax in MediaTek touch common drivers (`drivers/input/touchscreen/mediatek/O8/touch_common/touch_feature.c`), enabling clean builds with modern LLVM/Clang (Clang 11 through Clang 17+).
 
 ---
@@ -54,8 +58,8 @@ An optimized, production-grade custom Linux kernel tree for the **Samsung Galaxy
 
 ```text
 ├── arch/arm64/configs/
-│   └── a06_defconfig         # Master optimized kernel configuration
-├── build.sh                  # Turnkey compilation script
+│   └── a06_defconfig         # Master optimized kernel configuration (LLD + RELR)
+├── build.sh                  # Turnkey compilation script with LLD auto-detection
 ├── .github/workflows/
 │   └── build-kernel.yml      # Automated GitHub Actions CI workflow
 ├── drivers/                  # Hardware device drivers (MTK MT6769V)
@@ -72,13 +76,13 @@ An optimized, production-grade custom Linux kernel tree for the **Samsung Galaxy
 ### 1. Install Build Dependencies (Ubuntu / Debian)
 ```bash
 sudo apt update
-sudo apt install -y build-essential gcc-aarch64-linux-gnu bison flex libssl-dev bc python3 git
+sudo apt install -y build-essential gcc-aarch64-linux-gnu bison flex libssl-dev bc python3 git lld clang
 ```
 
 ### 2. Obtain a Toolchain
 This kernel is designed to build with Google AOSP Clang or Android NDK LLVM:
-* **Option A (Android NDK):** Use Clang from NDK r25+ (`toolchains/llvm/prebuilt/linux-x86_64/bin`).
-* **Option B (AOSP Clang):** Download `clang-r383902` or `clang-r416183b`.
+* **Option A (Android NDK):** Use Clang and LLD from NDK r26+ (`toolchains/llvm/prebuilt/linux-x86_64/bin`).
+* **Option B (AOSP Clang):** Download `clang-r416183b` or `clang-r487747e`.
 
 ### 3. Build Using the Automated Script
 ```bash
@@ -86,49 +90,18 @@ chmod +x build.sh
 ./build.sh
 ```
 
-### 4. Manual Compilation
-```bash
-export ARCH=arm64
-export SUBARCH=arm64
-export CROSS_COMPILE=aarch64-linux-gnu-
-export CC=clang
-export CLANG_TRIPLE=aarch64-linux-gnu-
-export ANDROID_MAJOR_VERSION=r
-
-# 1. Load defconfig
-make O=out a06_defconfig
-
-# 2. Compile kernel Image.gz
-make O=out -j$(nproc) Image.gz
-```
-
-Output binary: `out/arch/arm64/boot/Image.gz`
-
 ---
 
 ## Flashing & Deployment
 
-### 1. Repack into `boot.img`
-Replace the stock kernel inside your firmware's `boot.img` using `tools/repack_boot.py`:
+### Direct On-Device Flashing (Rooted via Magisk / APatch)
+Because the device is already bootloader-unlocked with disabled verification, you can flash directly without Odin:
 ```bash
-python3 tools/repack_boot.py --stock boot_stock.img --kernel out/arch/arm64/boot/Image.gz -o boot_custom.img
+su
+dd if=/sdcard/boot_custom.img of=/dev/block/by-name/boot bs=4096
+reboot
 ```
-
-### 2. Package for Odin
-Combine `boot_custom.img` with a disabled `vbmeta.img` (flags `0x02`):
-```bash
-tar -cvf AP_custom_kernel_AYE2.tar boot.img vbmeta.img
-```
-
-### 3. Flash to Device
-1. Boot phone into **Download Mode** (Hold **Vol Up + Vol Down** while connecting USB $\rightarrow$ press **Vol Up**).
-2. Flash `AP_custom_kernel_AYE2.tar` via Odin (Windows) in the **AP** slot, or on Linux via `odin4`:
-   ```bash
-   sudo ./odin4 -a AP_custom_kernel_AYE2.tar
-   ```
-3. Reboot normally.
-
-> **Note**: If your device is already bootloader-unlocked with disabled vbmeta, flashing this custom kernel **will NOT wipe your data**.
+Or use the **Flasher** utility in [SmartPack Kernel Manager (Galaxy A06 Edition)](https://github.com/s47user/SmartPack-Kernel-Manager-A06).
 
 ---
 
@@ -141,18 +114,21 @@ To experience the maximum fluidity of this custom kernel:
 2. **Configure via [SmartPack Kernel Manager (Galaxy A06 Edition)](https://github.com/s47user/SmartPack-Kernel-Manager-A06):**
    * Install the custom manager from [Releases](https://github.com/s47user/SmartPack-Kernel-Manager-A06/releases/tag/v17.7-A06).
    * **1-Tap Fluidity:** Toggle *⚡ Galaxy A06 Fluidity Mode* in the CPU tab (schedutil `up_rate_limit_us` $\rightarrow$ 500µs on policy 6, 512KB eMMC readahead).
-   * **Disable RAM Plus:** Turn off Samsung RAM Plus in Virtual Memory to halt disk swapping.
    * **In-RAM zRAM:** Set algorithm to **LZ4** or **ZSTD** and size to **2048 MB**.
-
 
 ---
 
 ## Credits & Acknowledgements
 
-* **Samsung Open Source Release Center (OSRC)** for the base kernel source.
-* **physwizz** for pioneering custom kernel research across budget Samsung MTK devices.
-* **The Android Open Source Project (AOSP)** & Linux Kernel contributors.
-* **bmax121 & APatch Team** for KernelPatch and APatch.
+Special thanks and sincere credit to the developers and communities whose open-source work made this kernel possible:
+
+* **Samsung Open Source Release Center (OSRC)** for releasing the stock BSP kernel source code (`SM-A065F_14_Opensource_A065FXXS4AYE2`).
+* **physwizz** for pioneering custom kernel research, governor tuning, and optimization principles on MediaTek Helio G85 devices.
+* **topjohnwu & The Magisk Team** for Magisk, `magiskboot`, and the sepolicy live-injection architecture enabling root under `Enforcing` SELinux.
+* **bmax121 & The APatch Team** for KernelPatch, dynamic Kprobes symbol hooking, and the APatch ecosystem.
+* **Jason A. Donenfeld & The WireGuard Project** for the in-kernel cryptographic VPN tunneling protocol.
+* **Google AOSP & Linux Kernel Maintainers** for BBR congestion control, Fair Queuing pacing (`sch_fq`), and LLVM Clang toolchain support.
+* **Willi Ye (Grarak) & The SmartPack Team** for Kernel Adiutor and SmartPack Kernel Manager.
 
 ---
 

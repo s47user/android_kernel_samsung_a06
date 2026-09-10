@@ -55,6 +55,16 @@ else
     CROSS_PREFIX="aarch64-linux-gnu-"
 fi
 
+# Linker and LLVM binutils detection
+CLANG_BIN_DIR="$(dirname "$(command -v clang)")"
+if [ -f "${CLANG_BIN_DIR}/ld.lld" ] || command -v ld.lld &> /dev/null; then
+    echo "[+] Found LLD: enabling compact RELR relocation packing"
+    LLD_OPTS="LD=ld.lld NM=llvm-nm OBJCOPY=llvm-objcopy"
+else
+    echo "[!] LLD not found, falling back to GNU ld"
+    LLD_OPTS=""
+fi
+
 export ARCH=arm64
 export SUBARCH=arm64
 export CROSS_COMPILE="${CROSS_PREFIX}"
@@ -65,6 +75,9 @@ export ANDROID_MAJOR_VERSION=r
 mkdir -p "${OUT_DIR}"
 
 echo "[*] Compiler: $(clang --version | head -n 1)"
+if [ -n "${LLD_OPTS}" ]; then
+    echo "[*] Linker: $(ld.lld --version 2>/dev/null || ${CLANG_BIN_DIR}/ld.lld --version | head -n 1)"
+fi
 echo "[*] Target Defconfig: ${DEFCONFIG}"
 echo "[*] Parallel Jobs: ${JOBS}"
 
@@ -72,7 +85,7 @@ echo "[*] Parallel Jobs: ${JOBS}"
 if [ ! -f "${OUT_DIR}/.config" ]; then
     echo "[*] Generating .config from ${DEFCONFIG}..."
     make -C "${KERNEL_DIR}" O="${OUT_DIR}" \
-        CC=clang CLANG_TRIPLE="${CLANG_TRIPLE}" \
+        CC=clang ${LLD_OPTS} CLANG_TRIPLE="${CLANG_TRIPLE}" \
         KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y \
         "${DEFCONFIG}"
 fi
@@ -80,7 +93,7 @@ fi
 # Step 2: Compile Image.gz
 echo "[*] Compiling Linux 4.19.191 Kernel Image.gz..."
 make -C "${KERNEL_DIR}" O="${OUT_DIR}" \
-    CC=clang CLANG_TRIPLE="${CLANG_TRIPLE}" \
+    CC=clang ${LLD_OPTS} CLANG_TRIPLE="${CLANG_TRIPLE}" \
     KCFLAGS=-w CONFIG_SECTION_MISMATCH_WARN_ONLY=y \
     Image.gz -j"${JOBS}"
 
