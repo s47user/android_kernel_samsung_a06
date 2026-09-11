@@ -11,6 +11,11 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 #include <linux/utsname.h> // utsname() and uts_sem
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/namei.h>
+#include <linux/susfs.h>
+#include "objsec.h"
+#endif // #ifdef CONFIG_KSU_SUSFS
 
 #include "uapi/supercall.h"
 #include "supercall/internal.h"
@@ -18,7 +23,7 @@
 #include "klog.h" // IWYU pragma: keep
 #include "manager/manager_identity.h"
 
-#include "sulog/event.h"
+#include "tiny_sulog.h"
 
 uint32_t ksuver_override = 0;
 
@@ -79,6 +84,126 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
 		magic2);
 #endif
 
+#ifdef CONFIG_KSU_SUSFS
+    // If magic2 is susfs and current process is root
+    if (magic2 == SUSFS_MAGIC && current_uid().val == 0) {
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+        if (cmd == CMD_SUSFS_ADD_SUS_PATH) {
+            susfs_add_sus_path((struct st_susfs_sus_path __user *)*arg);
+            return 0;
+        }
+#endif //#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+        if (cmd == CMD_SUSFS_ADD_SUS_MOUNT) {
+            susfs_add_sus_mount((struct st_susfs_sus_mount __user *)*arg);
+            return 0;
+        }
+#endif //#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+        if (cmd == CMD_SUSFS_ADD_SUS_KSTAT || cmd == CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY) {
+            susfs_add_sus_kstat((struct st_susfs_sus_kstat __user *)*arg);
+            return 0;
+        }
+        if (cmd == CMD_SUSFS_UPDATE_SUS_KSTAT) {
+            susfs_update_sus_kstat((struct st_susfs_sus_kstat __user *)*arg);
+            return 0;
+        }
+#endif //#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
+        if (cmd == CMD_SUSFS_ADD_TRY_UMOUNT) {
+            susfs_add_try_umount((struct st_susfs_try_umount __user *)*arg);
+            return 0;
+        }
+        if (cmd == CMD_SUSFS_RUN_UMOUNT_FOR_CURRENT_MNT_NS) {
+            susfs_run_try_umount_for_current_mnt_ns();
+            return 0;
+        }
+#endif //#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+        if (cmd == CMD_SUSFS_SET_UNAME) {
+            susfs_set_uname((struct st_susfs_uname __user *)*arg);
+            return 0;
+        }
+#endif //#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
+        if (cmd == CMD_SUSFS_ENABLE_LOG) {
+            susfs_set_log((bool)(uintptr_t)*arg);
+            return 0;
+        }
+#endif //#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
+#ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+        if (cmd == CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG) {
+            susfs_set_cmdline_or_bootconfig((char __user *)*arg);
+            return 0;
+        }
+#endif //#ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+        if (cmd == CMD_SUSFS_ADD_OPEN_REDIRECT) {
+            susfs_add_open_redirect((struct st_susfs_open_redirect __user *)*arg);
+            return 0;
+        }
+#endif //#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+        if (cmd == CMD_SUSFS_SHOW_ENABLED_FEATURES) {
+            u64 enabled_features = 0;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+            enabled_features |= (1 << 0);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+            enabled_features |= (1 << 1);
+#endif
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
+            enabled_features |= (1 << 2);
+#endif
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
+            enabled_features |= (1 << 3);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+            enabled_features |= (1 << 4);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_OVERLAYFS
+            enabled_features |= (1 << 5);
+#endif
+#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
+            enabled_features |= (1 << 6);
+#endif
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
+            enabled_features |= (1 << 7);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+            enabled_features |= (1 << 8);
+#endif
+#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
+            enabled_features |= (1 << 9);
+#endif
+#ifdef CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
+            enabled_features |= (1 << 10);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+            enabled_features |= (1 << 11);
+#endif
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+            enabled_features |= (1 << 12);
+#endif
+            if (copy_to_user((void __user *)*arg, &enabled_features, sizeof(enabled_features)))
+                pr_err("susfs: copy_to_user enabled_features failed\n");
+            return 0;
+        }
+        if (cmd == CMD_SUSFS_SHOW_VARIANT) {
+            int len = strlen(SUSFS_VARIANT);
+            if (copy_to_user((void __user *)*arg, SUSFS_VARIANT, len + 1))
+                pr_err("susfs: copy_to_user variant failed\n");
+            return 0;
+        }
+        if (cmd == CMD_SUSFS_SHOW_VERSION) {
+            int len = strlen(SUSFS_VERSION);
+            if (copy_to_user((void __user *)*arg, SUSFS_VERSION, len + 1))
+                pr_err("susfs: copy_to_user version failed\n");
+            return 0;
+        }
+        return 0;
+    }
+#endif // #ifdef CONFIG_KSU_SUSFS
+
 	// Check if this is a request to install KSU fd
 	if (magic2 == KSU_INSTALL_MAGIC2) {
 		int fd = ksu_install_fd();
@@ -118,7 +243,7 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
 		if (current_uid().val != 0)
 			return 0;
 
-		int ret = ksu_sulog_handle_compat_dump((void __user *)*arg);
+		int ret = send_sulog_dump(*arg);
 		if (ret)
 			return 0;
 
@@ -258,6 +383,8 @@ void __init ksu_supercalls_init(void)
 		pr_info("reboot kprobe registered successfully\n");
 	}
 #endif
+
+	sulog_init_heap(); // grab heap memory
 }
 
 void __exit ksu_supercalls_exit(void){
