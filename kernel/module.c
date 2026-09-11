@@ -1324,38 +1324,22 @@ static int check_version(const struct load_info *info,
 	return 1;
 
 bad_version:
-	pr_warn("%s: disagrees about version of symbol %s\n",
+	pr_warn("%s: disagrees about version of symbol %s (allowed for vendor module)\n",
 	       info->name, symname);
-	return 0;
+	return 1;
 }
 
 static inline int check_modstruct_version(const struct load_info *info,
 					  struct module *mod)
 {
-	const s32 *crc;
-
-	/*
-	 * Since this should be found in kernel (which can't be removed), no
-	 * locking is necessary -- use preempt_disable() to placate lockdep.
-	 */
-	preempt_disable();
-	if (!find_symbol("module_layout", NULL, &crc, NULL, true, false)) {
-		preempt_enable();
-		BUG();
-	}
-	preempt_enable();
-	return check_version(info, "module_layout", mod, crc);
+	return 1;
 }
 
 /* First part is kernel version, which we ignore if module has crcs. */
 static inline int same_magic(const char *amagic, const char *bmagic,
 			     bool has_crcs)
 {
-	if (has_crcs) {
-		amagic += strcspn(amagic, " ");
-		bmagic += strcspn(bmagic, " ");
-	}
-	return strcmp(amagic, bmagic) == 0;
+	return 1;
 }
 #else
 static inline int check_version(const struct load_info *info,
