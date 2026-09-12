@@ -911,6 +911,258 @@ void susfs_init(void) {
 	SUSFS_LOGI("susfs is initialized! version: " SUSFS_VERSION " \n");
 }
 
-/* No module exit is needed becuase it should never be a loadable kernel module */
-//void __init susfs_exit(void)
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
+extern bool susfs_is_auto_add_sus_ksu_default_mount_enabled;
+#endif
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
+extern bool susfs_is_auto_add_sus_bind_mount_enabled;
+#endif
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
+extern bool susfs_is_auto_add_try_umount_for_bind_mount_enabled;
+#endif
+
+void susfs_on_post_fs_data(void)
+{
+	struct path path;
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
+	if (!kern_path(DATA_ADB_NO_AUTO_ADD_SUS_BIND_MOUNT, 0, &path)) {
+		susfs_is_auto_add_sus_bind_mount_enabled = false;
+		path_put(&path);
+	}
+	pr_info("susfs: susfs_is_auto_add_sus_bind_mount_enabled: %d\n", susfs_is_auto_add_sus_bind_mount_enabled);
+#endif
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
+	if (!kern_path(DATA_ADB_NO_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT, 0, &path)) {
+		susfs_is_auto_add_sus_ksu_default_mount_enabled = false;
+		path_put(&path);
+	}
+	pr_info("susfs: susfs_is_auto_add_sus_ksu_default_mount_enabled: %d\n", susfs_is_auto_add_sus_ksu_default_mount_enabled);
+#endif
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
+	if (!kern_path(DATA_ADB_NO_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT, 0, &path)) {
+		susfs_is_auto_add_try_umount_for_bind_mount_enabled = false;
+		path_put(&path);
+	}
+	pr_info("susfs: susfs_is_auto_add_try_umount_for_bind_mount_enabled: %d\n", susfs_is_auto_add_try_umount_for_bind_mount_enabled);
+#endif
+}
+
+int susfs_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+		       unsigned long arg4, unsigned long arg5)
+{
+	if (option != 0xDEADBEEF)
+		return -EINVAL;
+
+	if (current_uid().val != 0)
+		return -EACCES;
+
+	switch (arg2) {
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	case CMD_SUSFS_ADD_SUS_PATH: {
+		int error;
+		if (!access_ok(VERIFY_READ, (void __user *)arg3, sizeof(struct st_susfs_sus_path)))
+			return -EFAULT;
+		error = susfs_add_sus_path((struct st_susfs_sus_path __user *)arg3);
+		if (arg5 && copy_to_user((void __user *)arg5, &error, sizeof(error)))
+			return -EFAULT;
+		return 0;
+	}
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+	case CMD_SUSFS_ADD_SUS_MOUNT: {
+		int error;
+		if (!access_ok(VERIFY_READ, (void __user *)arg3, sizeof(struct st_susfs_sus_mount)))
+			return -EFAULT;
+		error = susfs_add_sus_mount((struct st_susfs_sus_mount __user *)arg3);
+		if (arg5 && copy_to_user((void __user *)arg5, &error, sizeof(error)))
+			return -EFAULT;
+		return 0;
+	}
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+	case CMD_SUSFS_ADD_SUS_KSTAT:
+	case CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY: {
+		int error;
+		if (!access_ok(VERIFY_READ, (void __user *)arg3, sizeof(struct st_susfs_sus_kstat)))
+			return -EFAULT;
+		error = susfs_add_sus_kstat((struct st_susfs_sus_kstat __user *)arg3);
+		if (arg5 && copy_to_user((void __user *)arg5, &error, sizeof(error)))
+			return -EFAULT;
+		return 0;
+	}
+	case CMD_SUSFS_UPDATE_SUS_KSTAT: {
+		int error;
+		if (!access_ok(VERIFY_READ, (void __user *)arg3, sizeof(struct st_susfs_sus_kstat)))
+			return -EFAULT;
+		error = susfs_update_sus_kstat((struct st_susfs_sus_kstat __user *)arg3);
+		if (arg5 && copy_to_user((void __user *)arg5, &error, sizeof(error)))
+			return -EFAULT;
+		return 0;
+	}
+#endif
+#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
+	case CMD_SUSFS_ADD_TRY_UMOUNT: {
+		int error;
+		if (!access_ok(VERIFY_READ, (void __user *)arg3, sizeof(struct st_susfs_try_umount)))
+			return -EFAULT;
+		error = susfs_add_try_umount((struct st_susfs_try_umount __user *)arg3);
+		if (arg5 && copy_to_user((void __user *)arg5, &error, sizeof(error)))
+			return -EFAULT;
+		return 0;
+	}
+	case CMD_SUSFS_RUN_UMOUNT_FOR_CURRENT_MNT_NS: {
+		int error = 0;
+		susfs_run_try_umount_for_current_mnt_ns();
+		if (arg5 && copy_to_user((void __user *)arg5, &error, sizeof(error)))
+			return -EFAULT;
+		return 0;
+	}
+#endif
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+	case CMD_SUSFS_SET_UNAME: {
+		int error;
+		if (!access_ok(VERIFY_READ, (void __user *)arg3, sizeof(struct st_susfs_uname)))
+			return -EFAULT;
+		error = susfs_set_uname((struct st_susfs_uname __user *)arg3);
+		if (arg5 && copy_to_user((void __user *)arg5, &error, sizeof(error)))
+			return -EFAULT;
+		return 0;
+	}
+#endif
+#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
+	case CMD_SUSFS_ENABLE_LOG: {
+		if (arg3 != 0 && arg3 != 1)
+			return -EINVAL;
+		susfs_set_log(arg3);
+		if (arg5 && copy_to_user((void __user *)arg5, &arg3, sizeof(int)))
+			return -EFAULT;
+		return 0;
+	}
+#endif
+#ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+	case CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG: {
+		int error;
+		if (!access_ok(VERIFY_READ, (void __user *)arg3, SUSFS_FAKE_CMDLINE_OR_BOOTCONFIG_SIZE))
+			return -EFAULT;
+		error = susfs_set_cmdline_or_bootconfig((char __user *)arg3);
+		if (arg5 && copy_to_user((void __user *)arg5, &error, sizeof(error)))
+			return -EFAULT;
+		return 0;
+	}
+#endif
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+	case CMD_SUSFS_ADD_OPEN_REDIRECT: {
+		int error;
+		if (!access_ok(VERIFY_READ, (void __user *)arg3, sizeof(struct st_susfs_open_redirect)))
+			return -EFAULT;
+		error = susfs_add_open_redirect((struct st_susfs_open_redirect __user *)arg3);
+		if (arg5 && copy_to_user((void __user *)arg5, &error, sizeof(error)))
+			return -EFAULT;
+		return 0;
+	}
+#endif
+	case CMD_SUSFS_SHOW_VERSION: {
+		int error = 0;
+		int len = strlen(SUSFS_VERSION);
+		if (!access_ok(VERIFY_WRITE, (void __user *)arg3, len + 1))
+			return -EFAULT;
+		if (copy_to_user((void __user *)arg3, SUSFS_VERSION, len + 1))
+			return -EFAULT;
+		if (arg5 && copy_to_user((void __user *)arg5, &error, sizeof(error)))
+			return -EFAULT;
+		return 0;
+	}
+	case CMD_SUSFS_SHOW_ENABLED_FEATURES: {
+		int error = 0;
+		u64 enabled_features = 0;
+		if (!access_ok(VERIFY_WRITE, (void __user *)arg3, sizeof(enabled_features)))
+			return -EFAULT;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+		enabled_features |= (1 << 0);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+		enabled_features |= (1 << 1);
+#endif
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
+		enabled_features |= (1 << 2);
+#endif
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
+		enabled_features |= (1 << 3);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+		enabled_features |= (1 << 4);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_OVERLAYFS
+		enabled_features |= (1 << 5);
+#endif
+#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
+		enabled_features |= (1 << 6);
+#endif
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
+		enabled_features |= (1 << 7);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+		enabled_features |= (1 << 8);
+#endif
+#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
+		enabled_features |= (1 << 9);
+#endif
+#ifdef CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
+		enabled_features |= (1 << 10);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+		enabled_features |= (1 << 11);
+#endif
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+		enabled_features |= (1 << 12);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_SU
+		enabled_features |= (1 << 13);
+#endif
+#ifdef CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT
+		enabled_features |= (1 << 14);
+#endif
+		if (copy_to_user((void __user *)arg3, &enabled_features, sizeof(enabled_features)))
+			return -EFAULT;
+		if (arg5 && copy_to_user((void __user *)arg5, &error, sizeof(error)))
+			return -EFAULT;
+		return 0;
+	}
+	case CMD_SUSFS_SHOW_VARIANT: {
+		int error = 0;
+		int len = strlen(SUSFS_VARIANT);
+		if (!access_ok(VERIFY_WRITE, (void __user *)arg3, len + 1))
+			return -EFAULT;
+		if (copy_to_user((void __user *)arg3, SUSFS_VARIANT, len + 1))
+			return -EFAULT;
+		if (arg5 && copy_to_user((void __user *)arg5, &error, sizeof(error)))
+			return -EFAULT;
+		return 0;
+	}
+#ifdef CONFIG_KSU_SUSFS_SUS_SU
+	case CMD_SUSFS_SHOW_SUS_SU_WORKING_MODE: {
+		int mode = susfs_get_sus_su_working_mode();
+		int error = 0;
+		if (!access_ok(VERIFY_WRITE, (void __user *)arg3, sizeof(mode)))
+			return -EFAULT;
+		if (copy_to_user((void __user *)arg3, &mode, sizeof(mode)))
+			return -EFAULT;
+		if (arg5 && copy_to_user((void __user *)arg5, &error, sizeof(error)))
+			return -EFAULT;
+		return 0;
+	}
+	case CMD_SUSFS_SUS_SU: {
+		int error;
+		if (!access_ok(VERIFY_READ, (void __user *)arg3, sizeof(struct st_sus_su)))
+			return -EFAULT;
+		error = susfs_sus_su((struct st_sus_su __user *)arg3);
+		if (arg5 && copy_to_user((void __user *)arg5, &error, sizeof(error)))
+			return -EFAULT;
+		return 0;
+	}
+#endif
+	default:
+		return -EINVAL;
+	}
+}
 

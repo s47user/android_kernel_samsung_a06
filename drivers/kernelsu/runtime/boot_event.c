@@ -10,6 +10,9 @@
 #include "manager/manager_observer.h"
 #include "manager/throne_tracker.h"
 #include "selinux/selinux.h"
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs.h>
+#endif
 
 bool ksu_module_mounted __read_mostly = false;
 bool ksu_boot_completed __read_mostly = false;
@@ -20,6 +23,9 @@ extern void ksu_avc_spoof_late_init();
 void on_post_fs_data(void)
 {
 	static bool done = false;
+#ifdef CONFIG_KSU_SUSFS
+	susfs_on_post_fs_data();
+#endif
 	if (done) {
 		pr_info("on_post_fs_data already done\n");
 		return;

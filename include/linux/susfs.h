@@ -186,4 +186,8 @@ int susfs_sus_su(struct st_sus_su* __user user_info);
 /* susfs_init */
 void susfs_init(void);
 
+int susfs_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+		       unsigned long arg4, unsigned long arg5);
+void susfs_on_post_fs_data(void);
+
 #endif

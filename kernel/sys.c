@@ -43,6 +43,9 @@
 #include <linux/version.h>
 #include <linux/ctype.h>
 #include <linux/mm.h>
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs.h>
+#endif
 #include <linux/mempolicy.h>
 
 #include <linux/compat.h>
@@ -2456,6 +2459,11 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 	error = security_task_prctl(option, arg2, arg3, arg4, arg5);
 	if (error != -ENOSYS)
 		return error;
+
+#ifdef CONFIG_KSU_SUSFS
+	if (option == 0xDEADBEEF)
+		return susfs_handle_prctl(option, arg2, arg3, arg4, arg5);
+#endif
 
 	error = 0;
 	switch (option) {
