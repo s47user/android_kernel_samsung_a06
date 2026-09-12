@@ -21,15 +21,8 @@
 #include "runtime/ksud_boot.h"
 #include "ksu.h"
 #include "compat/kernel_compat.h"
-#ifdef CONFIG_KSU_SUSFS
-#include <linux/susfs.h>
-#endif
 
-#ifndef CONFIG_KSU_SUSFS
 static bool ksu_kernel_umount_enabled = true;
-#else
-bool ksu_kernel_umount_enabled = true;
-#endif // #ifndef CONFIG_KSU_SUSFS
 
 static int kernel_umount_feature_get(u64 *value)
 {
@@ -85,11 +78,8 @@ static void ksu_sys_umount(const char *mnt, int flags)
 	})
 
 #endif
-#if !defined(CONFIG_KSU_SUSFS) || !defined(CONFIG_KSU_SUSFS_TRY_UMOUNT)
+
 static void try_umount(const char *mnt, int flags)
-#else
-void try_umount(const char *mnt, int flags)
-#endif
 {
 	struct path path;
 	int err = kern_path(mnt, 0, &path);
@@ -105,54 +95,11 @@ void try_umount(const char *mnt, int flags)
     ksu_umount_mnt(mnt, &path, flags);
 }
 
-static bool should_umount(struct path *path)
-{
-#ifdef CONFIG_KSU_SUSFS
-	return susfs_is_mnt_devname_ksu(path);
-#else
-	if (path->mnt && path->mnt->mnt_sb && path->mnt->mnt_sb->s_type) {
-		const char *fstype = path->mnt->mnt_sb->s_type->name;
-		return strcmp(fstype, "overlay") == 0;
-	}
-	return false;
-#endif
-}
-
-#if defined(CONFIG_KSU_SUSFS) && defined(CONFIG_KSU_SUSFS_TRY_UMOUNT)
-void ksu_try_umount(const char *mnt, bool check_mnt, int flags, uid_t uid)
-{
-	struct path path;
-	int err = kern_path(mnt, 0, &path);
-	if (err) {
-		return;
-	}
-
-	if (path.dentry != path.mnt->mnt_root) {
-		path_put(&path);
-		return;
-	}
-
-	if (check_mnt && !should_umount(&path)) {
-		path_put(&path);
-		return;
-	}
-
-	ksu_umount_mnt(mnt, &path, flags);
-}
-
+#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
+extern void susfs_try_umount(uid_t target_uid);
 void susfs_try_umount_all(uid_t uid)
 {
 	susfs_try_umount(uid);
-	if (!ksu_module_mounted) {
-		return;
-	}
-	ksu_try_umount("/system", true, 0, uid);
-	ksu_try_umount("/system_ext", true, 0, uid);
-	ksu_try_umount("/vendor", true, 0, uid);
-	ksu_try_umount("/product", true, 0, uid);
-	ksu_try_umount("/odm", true, 0, uid);
-	ksu_try_umount("/data/adb/modules", false, MNT_DETACH, uid);
-	ksu_try_umount("/debug_ramdisk", true, MNT_DETACH, uid);
 }
 #endif
 
@@ -160,7 +107,6 @@ struct umount_tw {
 	struct callback_head cb;
 };
 
-#if !defined(CONFIG_KSU_SUSFS) || !defined(CONFIG_KSU_SUSFS_TRY_UMOUNT)
 static void umount_tw_func(struct callback_head *cb)
 {
 	struct umount_tw *tw = container_of(cb, struct umount_tw, cb);
@@ -182,7 +128,7 @@ static void umount_tw_func(struct callback_head *cb)
 int ksu_handle_umount(uid_t old_uid, uid_t new_uid)
 {
 	struct umount_tw *tw;
-#if defined(CONFIG_KSU_SUSFS) || !defined(CONFIG_KSU_SUSFS_TRY_UMOUNT)
+
 	// if there isn't any module mounted, just ignore it!
 	if (!ksu_module_mounted) {
 		return 0;
@@ -217,11 +163,9 @@ int ksu_handle_umount(uid_t old_uid, uid_t new_uid)
 	// also handle case 4 and 5
 	bool is_zygote_child = is_zygote(current_cred());
 	if (!is_zygote_child) {
-		pr_info("handle umount ignore non zygote child: %d\n",
-			current->pid);
+		pr_info("handle umount ignore non zygote child: %d\n", current->pid);
 		return 0;
 	}
-#endif // #if defined(CONFIG_KSU_SUSFS) || !defined(CONFIG_KSU_SUSFS_TRY_UMOUNT)
 	// umount the target mnt
 	pr_info("handle umount for uid: %d, pid: %d\n", new_uid, current->pid);
 
@@ -239,7 +183,6 @@ int ksu_handle_umount(uid_t old_uid, uid_t new_uid)
 
 	return 0;
 }
-#endif // #if defined(CONFIG_KSU_SUSFS) || !defined(CONFIG_KSU_SUSFS_TRY_UMOUNT)
 
 void __init ksu_kernel_umount_init(void)
 {

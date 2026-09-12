@@ -11,11 +11,6 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 #include <linux/utsname.h> // utsname() and uts_sem
-#ifdef CONFIG_KSU_SUSFS
-#include <linux/namei.h>
-#include <linux/susfs.h>
-#include "objsec.h"
-#endif // #ifdef CONFIG_KSU_SUSFS
 
 #include "uapi/supercall.h"
 #include "supercall/internal.h"
@@ -23,7 +18,10 @@
 #include "klog.h" // IWYU pragma: keep
 #include "manager/manager_identity.h"
 
-#include "tiny_sulog.h"
+#include "sulog/event.h"
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs.h>
+#endif
 
 uint32_t ksuver_override = 0;
 
@@ -92,13 +90,13 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
             susfs_add_sus_path((struct st_susfs_sus_path __user *)*arg);
             return 0;
         }
-#endif //#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+#endif
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
         if (cmd == CMD_SUSFS_ADD_SUS_MOUNT) {
             susfs_add_sus_mount((struct st_susfs_sus_mount __user *)*arg);
             return 0;
         }
-#endif //#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+#endif
 #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
         if (cmd == CMD_SUSFS_ADD_SUS_KSTAT || cmd == CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY) {
             susfs_add_sus_kstat((struct st_susfs_sus_kstat __user *)*arg);
@@ -108,7 +106,7 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
             susfs_update_sus_kstat((struct st_susfs_sus_kstat __user *)*arg);
             return 0;
         }
-#endif //#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+#endif
 #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
         if (cmd == CMD_SUSFS_ADD_TRY_UMOUNT) {
             susfs_add_try_umount((struct st_susfs_try_umount __user *)*arg);
@@ -118,31 +116,31 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
             susfs_run_try_umount_for_current_mnt_ns();
             return 0;
         }
-#endif //#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
+#endif
 #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
         if (cmd == CMD_SUSFS_SET_UNAME) {
             susfs_set_uname((struct st_susfs_uname __user *)*arg);
             return 0;
         }
-#endif //#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+#endif
 #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
         if (cmd == CMD_SUSFS_ENABLE_LOG) {
             susfs_set_log((bool)(uintptr_t)*arg);
             return 0;
         }
-#endif //#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
+#endif
 #ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
         if (cmd == CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG) {
             susfs_set_cmdline_or_bootconfig((char __user *)*arg);
             return 0;
         }
-#endif //#ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+#endif
 #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
         if (cmd == CMD_SUSFS_ADD_OPEN_REDIRECT) {
             susfs_add_open_redirect((struct st_susfs_open_redirect __user *)*arg);
             return 0;
         }
-#endif //#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+#endif
         if (cmd == CMD_SUSFS_SHOW_ENABLED_FEATURES) {
             u64 enabled_features = 0;
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
@@ -202,7 +200,7 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
         }
         return 0;
     }
-#endif // #ifdef CONFIG_KSU_SUSFS
+#endif
 
 	// Check if this is a request to install KSU fd
 	if (magic2 == KSU_INSTALL_MAGIC2) {
@@ -243,7 +241,7 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
 		if (current_uid().val != 0)
 			return 0;
 
-		int ret = send_sulog_dump(*arg);
+		int ret = ksu_sulog_handle_compat_dump((void __user *)*arg);
 		if (ret)
 			return 0;
 
@@ -383,8 +381,6 @@ void __init ksu_supercalls_init(void)
 		pr_info("reboot kprobe registered successfully\n");
 	}
 #endif
-
-	sulog_init_heap(); // grab heap memory
 }
 
 void __exit ksu_supercalls_exit(void){
