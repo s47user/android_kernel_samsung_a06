@@ -96,6 +96,11 @@ static void try_umount(const char *mnt, int flags)
 }
 
 #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
+void ksu_try_umount(const char *mnt, bool check_mnt, int flags, uid_t uid)
+{
+	try_umount(mnt, flags);
+}
+
 extern void susfs_try_umount(uid_t target_uid);
 void susfs_try_umount_all(uid_t uid)
 {
