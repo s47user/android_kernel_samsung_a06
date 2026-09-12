@@ -105,6 +105,19 @@ void try_umount(const char *mnt, int flags)
     ksu_umount_mnt(mnt, &path, flags);
 }
 
+static bool should_umount(struct path *path)
+{
+#ifdef CONFIG_KSU_SUSFS
+	return susfs_is_mnt_devname_ksu(path);
+#else
+	if (path->mnt && path->mnt->mnt_sb && path->mnt->mnt_sb->s_type) {
+		const char *fstype = path->mnt->mnt_sb->s_type->name;
+		return strcmp(fstype, "overlay") == 0;
+	}
+	return false;
+#endif
+}
+
 #if defined(CONFIG_KSU_SUSFS) && defined(CONFIG_KSU_SUSFS_TRY_UMOUNT)
 void ksu_try_umount(const char *mnt, bool check_mnt, int flags, uid_t uid)
 {
@@ -114,16 +127,25 @@ void ksu_try_umount(const char *mnt, bool check_mnt, int flags, uid_t uid)
 		return;
 	}
 
-	if (check_mnt && path.dentry != path.mnt->mnt_root) {
+	if (path.dentry != path.mnt->mnt_root) {
 		path_put(&path);
 		return;
 	}
+
+	if (check_mnt && !should_umount(&path)) {
+		path_put(&path);
+		return;
+	}
+
 	ksu_umount_mnt(mnt, &path, flags);
 }
 
 void susfs_try_umount_all(uid_t uid)
 {
 	susfs_try_umount(uid);
+	if (!ksu_module_mounted) {
+		return;
+	}
 	ksu_try_umount("/system", true, 0, uid);
 	ksu_try_umount("/system_ext", true, 0, uid);
 	ksu_try_umount("/vendor", true, 0, uid);
