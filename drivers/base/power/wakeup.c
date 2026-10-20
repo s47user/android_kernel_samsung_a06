@@ -21,6 +21,7 @@
 #include <trace/events/power.h>
 
 #include "power.h"
+#include "boeffla_wl_blocker.h"
 
 #ifndef CONFIG_SUSPEND
 suspend_state_t pm_suspend_target_state;
@@ -586,6 +587,11 @@ void __pm_stay_awake(struct wakeup_source *ws)
 	if (!ws)
 		return;
 
+#ifdef CONFIG_BOEFFLA_WL_BLOCKER
+	if (is_wl_blocked(ws->name))
+		return;
+#endif
+
 	spin_lock_irqsave(&ws->lock, flags);
 
 	wakeup_source_report_event(ws, false);
@@ -773,6 +779,11 @@ void pm_wakeup_ws_event(struct wakeup_source *ws, unsigned int msec, bool hard)
 
 	if (!ws)
 		return;
+
+#ifdef CONFIG_BOEFFLA_WL_BLOCKER
+	if (!hard && is_wl_blocked(ws->name))
+		return;
+#endif
 
 	spin_lock_irqsave(&ws->lock, flags);
 

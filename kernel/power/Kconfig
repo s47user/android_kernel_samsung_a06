@@ -141,6 +141,15 @@ config PM_WAKELOCKS_GC
 	depends on PM_WAKELOCKS
 	default y
 
+config BOEFFLA_WL_BLOCKER
+	bool "Boeffla Generic Wakelock Blocker"
+	depends on PM_SLEEP
+	default y
+	---help---
+	  Allows blocking of specific wakeup sources / wakelocks via sysfs
+	  to prevent rogue background kernel wakelocks from draining battery
+	  during device sleep.
+
 config PM
 	bool "Device power management core functionality"
 	---help---
